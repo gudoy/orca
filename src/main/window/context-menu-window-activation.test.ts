@@ -1,46 +1,46 @@
-import type { App, BrowserWindow, WebContents } from 'electron'
+import type { App } from 'electron'
 import { describe, expect, it, vi } from 'vitest'
 import {
   installContextMenuWindowActivation,
-  shouldActivateWindowForContextMenuInput
+  shouldActivateWindowForContextMenuInput,
+  type ContextMenuActivationInput,
+  type ContextMenuInputEventTarget,
+  type ContextMenuWindowActivationOptions
 } from './context-menu-window-activation'
 
-function makeFakeWebContents(): Pick<WebContents, 'on'> & {
-  emitInput: (input: unknown) => void
+function makeFakeWebContents(): ContextMenuInputEventTarget & {
+  emitInput: (input: ContextMenuActivationInput) => void
 } {
-  const listeners: ((event: unknown, input: unknown) => void)[] = []
+  const listeners: ((event: unknown, input: ContextMenuActivationInput) => void)[] = []
   return {
-    on: vi.fn((channel: string, listener: (event: unknown, input: unknown) => void) => {
+    on: (channel, listener) => {
       if (channel === 'input-event') {
         listeners.push(listener)
       }
-      return undefined as never
-    }),
-    emitInput: (input: unknown) => {
+    },
+    emitInput: (input) => {
       for (const listener of listeners) {
         listener({}, input)
       }
     }
-  } as unknown as Pick<WebContents, 'on'> & { emitInput: (input: unknown) => void }
+  }
 }
 
-function makeFakeWindow(options: { focused?: boolean; destroyed?: boolean } = {}): BrowserWindow & {
-  focusCalls: ReturnType<typeof vi.fn>
-} {
+function makeFakeWindow(
+  options: { focused?: boolean; destroyed?: boolean } = {}
+): ContextMenuWindowActivationOptions['window'] & { focusCalls: ReturnType<typeof vi.fn> } {
   const focus = vi.fn()
   return {
-    isFocused: vi.fn(() => options.focused ?? false),
-    isDestroyed: vi.fn(() => options.destroyed ?? false),
+    isFocused: () => options.focused ?? false,
+    isDestroyed: () => options.destroyed ?? false,
     focus,
     focusCalls: focus
-  } as unknown as BrowserWindow & { focusCalls: ReturnType<typeof vi.fn> }
+  }
 }
 
 function makeFakeApp(): Pick<App, 'focus'> & { focusCalls: ReturnType<typeof vi.fn> } {
   const focus = vi.fn()
-  return { focus, focusCalls: focus } as unknown as Pick<App, 'focus'> & {
-    focusCalls: ReturnType<typeof vi.fn>
-  }
+  return { focus, focusCalls: focus }
 }
 
 describe('shouldActivateWindowForContextMenuInput', () => {
@@ -140,6 +140,42 @@ describe('installContextMenuWindowActivation', () => {
 
     expect(app.focusCalls).not.toHaveBeenCalled()
     expect(window.focusCalls).not.toHaveBeenCalled()
+  })
+
+  it('takes no foreground during a background launch', () => {
+    const webContents = makeFakeWebContents()
+    const window = makeFakeWindow({ focused: false })
+    const app = makeFakeApp()
+
+    installContextMenuWindowActivation({
+      webContents,
+      window,
+      app,
+      platform: 'darwin',
+      env: { ORCA_BACKGROUND_LAUNCH: '1' }
+    })
+    webContents.emitInput({ type: 'mouseDown', button: 'right' })
+
+    expect(app.focusCalls).not.toHaveBeenCalled()
+    expect(window.focusCalls).not.toHaveBeenCalled()
+  })
+
+  it('activates on a foreground launch', () => {
+    const webContents = makeFakeWebContents()
+    const window = makeFakeWindow({ focused: false })
+    const app = makeFakeApp()
+
+    installContextMenuWindowActivation({
+      webContents,
+      window,
+      app,
+      platform: 'darwin',
+      env: { ORCA_E2E_FOREGROUND: '1' }
+    })
+    webContents.emitInput({ type: 'mouseDown', button: 'right' })
+
+    expect(app.focusCalls).toHaveBeenCalledWith({ steal: true })
+    expect(window.focusCalls).toHaveBeenCalledTimes(1)
   })
 
   it('still focuses the window when app.focus throws', () => {

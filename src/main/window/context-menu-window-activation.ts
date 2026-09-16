@@ -1,4 +1,6 @@
-import type { App, BrowserWindow, WebContents } from 'electron'
+import type { App, BrowserWindow } from 'electron'
+import { safelyFocusApp } from './focus-existing-window'
+import { isBackgroundLaunch, type PolicyEnv } from './foreground-activation-policy'
 
 export type ContextMenuActivationInput = {
   type?: string
@@ -6,11 +8,20 @@ export type ContextMenuActivationInput = {
   modifiers?: readonly string[]
 }
 
+/** Only the 'input-event' subscription of a WebContents, so tests can stand one up without casts. */
+export type ContextMenuInputEventTarget = {
+  on: (
+    channel: 'input-event',
+    listener: (event: unknown, input: ContextMenuActivationInput) => void
+  ) => unknown
+}
+
 export type ContextMenuWindowActivationOptions = {
-  webContents: Pick<WebContents, 'on'>
+  webContents: ContextMenuInputEventTarget
   window: Pick<BrowserWindow, 'isDestroyed' | 'isFocused' | 'focus'>
   app: Pick<App, 'focus'>
   platform?: NodeJS.Platform
+  env?: PolicyEnv
 }
 
 // Why: macOS skips activation on a right press, and an unfocused window emits no focus events, so Radix highlights nothing.
@@ -37,18 +48,16 @@ export function installContextMenuWindowActivation(
 ): void {
   const { webContents, window, app } = options
   const platform = options.platform ?? process.platform
+  const env = options.env ?? process.env
   webContents.on('input-event', (_event, input) => {
-    if (window.isDestroyed()) {
+    // Why: an automated run drives synthetic clicks; taking the foreground there would sit on the developer's desktop.
+    if (window.isDestroyed() || isBackgroundLaunch(env)) {
       return
     }
     if (!shouldActivateWindowForContextMenuInput(input, window.isFocused(), platform)) {
       return
     }
-    try {
-      app.focus({ steal: true })
-    } catch {
-      // Best-effort; the window focus below still raises the menu's own window.
-    }
+    safelyFocusApp(app)
     window.focus()
   })
 }

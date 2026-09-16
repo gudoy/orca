@@ -20,7 +20,7 @@ export type FocusExistingMainWindowOptions = {
   warn?: (message: string, error?: unknown) => void
 }
 
-function safelyFocusApp(app: Pick<App, 'focus'>): void {
+export function safelyFocusApp(app: Pick<App, 'focus'>): void {
   // Real second-instance reopen may claim foreground; automated launches must never do so.
   if (isBackgroundLaunch()) {
     return
