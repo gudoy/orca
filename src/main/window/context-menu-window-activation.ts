@@ -57,7 +57,7 @@ export function installContextMenuWindowActivation(
     if (!shouldActivateWindowForContextMenuInput(input, window.isFocused(), platform)) {
       return
     }
-    safelyFocusApp(app)
+    safelyFocusApp(app, env)
     window.focus()
   })
 }

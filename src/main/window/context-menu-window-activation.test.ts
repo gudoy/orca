@@ -111,7 +111,7 @@ describe('installContextMenuWindowActivation', () => {
     const window = makeFakeWindow({ focused: false })
     const app = makeFakeApp()
 
-    installContextMenuWindowActivation({ webContents, window, app, platform: 'darwin' })
+    installContextMenuWindowActivation({ webContents, window, app, platform: 'darwin', env: {} })
     webContents.emitInput({ type: 'mouseDown', button: 'right' })
 
     expect(app.focusCalls).toHaveBeenCalledWith({ steal: true })
@@ -123,7 +123,7 @@ describe('installContextMenuWindowActivation', () => {
     const window = makeFakeWindow({ focused: true })
     const app = makeFakeApp()
 
-    installContextMenuWindowActivation({ webContents, window, app, platform: 'darwin' })
+    installContextMenuWindowActivation({ webContents, window, app, platform: 'darwin', env: {} })
     webContents.emitInput({ type: 'mouseDown', button: 'right' })
 
     expect(app.focusCalls).not.toHaveBeenCalled()
@@ -135,7 +135,7 @@ describe('installContextMenuWindowActivation', () => {
     const window = makeFakeWindow({ focused: false, destroyed: true })
     const app = makeFakeApp()
 
-    installContextMenuWindowActivation({ webContents, window, app, platform: 'darwin' })
+    installContextMenuWindowActivation({ webContents, window, app, platform: 'darwin', env: {} })
     webContents.emitInput({ type: 'mouseDown', button: 'right' })
 
     expect(app.focusCalls).not.toHaveBeenCalled()
@@ -186,7 +186,7 @@ describe('installContextMenuWindowActivation', () => {
       throw new Error('no app focus')
     })
 
-    installContextMenuWindowActivation({ webContents, window, app, platform: 'darwin' })
+    installContextMenuWindowActivation({ webContents, window, app, platform: 'darwin', env: {} })
     webContents.emitInput({ type: 'mouseDown', button: 'right' })
 
     expect(window.focusCalls).toHaveBeenCalledTimes(1)
